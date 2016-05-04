@@ -19,28 +19,36 @@ namespace ConsoleApp
         {
             var connectionString = File.ReadAllText("C:\\ConnectionStrings\\StorageAccountConnectionString.txt");
 
-            UploadToBlobs(connectionString);
-
-            ListBlobs(connectionString);
-
-        }
-
-        private static MemoryStream GenerateStreamFromString(string value)
-        {
-            return new MemoryStream(Encoding.UTF8.GetBytes(value ?? ""));
-        }
-
-        private static void UploadToBlobs(string connectionString)
-        {
             CloudStorageAccount storageAccount = CloudStorageAccount.Parse(connectionString);
 
+            // Create the blob client.
             CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
-            // Retrieve a reference to a container.
+
+            // Retrieve reference to a previously created container.
             CloudBlobContainer container = blobClient.GetContainerReference("mycontainer");
 
             // Create the container if it doesn't already exist.
             container.CreateIfNotExists();
 
+            var program = new Program();
+
+            program.UploadToBlobs(container);
+
+            var blobNames = program.ListBlobs(container, true);
+
+            foreach (var blob in blobNames)
+            {
+                program.DownloadBlobs(container, blob);
+            }
+        }
+
+        private MemoryStream GenerateStreamFromString(string value)
+        {
+            return new MemoryStream(Encoding.UTF8.GetBytes(value ?? ""));
+        }
+
+        public void UploadToBlobs(CloudBlobContainer container)
+        {
             for (var i = 0; i < 10; i++)
             {
                 // Retrieve reference to a blob named "myblob".
@@ -55,26 +63,18 @@ namespace ConsoleApp
             }
         }
 
-        private static void ListBlobs(string connectionString)
+        public IEnumerable<string> ListBlobs(CloudBlobContainer container, bool useFlatListing = false)
         {
-            // Retrieve storage account from connection string.
-            CloudStorageAccount storageAccount = CloudStorageAccount.Parse(connectionString);
-
-            // Create the blob client.
-            CloudBlobClient blobClient = storageAccount.CreateCloudBlobClient();
-
-            // Retrieve reference to a previously created container.
-            CloudBlobContainer container = blobClient.GetContainerReference("mycontainer");
-
+            var blobRefs = new List<string>();
             // Loop over items within the container and output the length and URI.
-            foreach (IListBlobItem item in container.ListBlobs(null, false))
+            foreach (IListBlobItem item in container.ListBlobs(null, useFlatListing))
             {
                 if (item.GetType() == typeof(CloudBlockBlob))
                 {
                     CloudBlockBlob blob = (CloudBlockBlob)item;
 
                     Console.WriteLine("Block blob of length {0}: {1}", blob.Properties.Length, blob.Uri);
-
+                    blobRefs.Add(blob.Name);
                 }
                 else if (item.GetType() == typeof(CloudPageBlob))
                 {
@@ -89,6 +89,21 @@ namespace ConsoleApp
 
                     Console.WriteLine("Directory: {0}", directory.Uri);
                 }
+            }
+            return blobRefs;
+        }
+
+        public void DownloadBlobs(CloudBlobContainer container, string blobName)
+        {
+            // Retrieve reference to a blob named "photo1.jpg".
+            CloudBlockBlob blockBlob = container.GetBlockBlobReference(blobName);
+
+            // Save blob contents to a file.
+            using (var memoryStream = new MemoryStream())
+            {
+                blockBlob.DownloadToStream(memoryStream);
+                var content = Encoding.UTF8.GetString(memoryStream.ToArray());
+                Console.WriteLine("{0}: {1}", blobName, content);
             }
         }
     }
