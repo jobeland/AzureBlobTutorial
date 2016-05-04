@@ -40,6 +40,15 @@ namespace ConsoleApp
             {
                 program.DownloadBlobs(container, blob);
             }
+
+            var toDelete = blobNames.Where(b => b.Contains("deleteMe"));
+
+            foreach (var blob in toDelete)
+            {
+                program.DeleteBlob(container, blob);
+            }
+
+            blobNames = program.ListBlobs(container, true);
         }
 
         private MemoryStream GenerateStreamFromString(string value)
@@ -59,6 +68,14 @@ namespace ConsoleApp
                 using (var stream = GenerateStreamFromString($"this is some test blob content {i}"))
                 {
                     blockBlob.UploadFromStream(stream);
+                }
+
+                CloudBlockBlob blockBlob2 = container.GetBlockBlobReference($"deleteMe{i}");
+
+                // Create or overwrite the "myblob" blob with contents from a local file.
+                using (var stream = GenerateStreamFromString($"this is some test blob content to delete {i}"))
+                {
+                    blockBlob2.UploadFromStream(stream);
                 }
             }
         }
@@ -105,6 +122,14 @@ namespace ConsoleApp
                 var content = Encoding.UTF8.GetString(memoryStream.ToArray());
                 Console.WriteLine("{0}: {1}", blobName, content);
             }
+        }
+
+        public void DeleteBlob(CloudBlobContainer container, string blobName)
+        {
+            // Retrieve reference to a blob named "photo1.jpg".
+            CloudBlockBlob blockBlob = container.GetBlockBlobReference(blobName);
+
+            blockBlob.Delete();
         }
     }
 }
