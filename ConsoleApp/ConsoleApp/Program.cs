@@ -112,7 +112,6 @@ namespace ConsoleApp
 
         public void DownloadBlobs(CloudBlobContainer container, string blobName)
         {
-            // Retrieve reference to a blob named "photo1.jpg".
             CloudBlockBlob blockBlob = container.GetBlockBlobReference(blobName);
 
             // Save blob contents to a file.
@@ -126,7 +125,6 @@ namespace ConsoleApp
 
         public void DeleteBlob(CloudBlobContainer container, string blobName)
         {
-            // Retrieve reference to a blob named "photo1.jpg".
             CloudBlockBlob blockBlob = container.GetBlockBlobReference(blobName);
 
             blockBlob.Delete();
