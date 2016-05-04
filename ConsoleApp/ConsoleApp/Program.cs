@@ -34,7 +34,9 @@ namespace ConsoleApp
 
             program.UploadToBlobs(container);
 
-            var blobNames = program.ListBlobs(container, true);
+            program.ListBlobs(container, true);
+
+            var blobNames = program.GetBlobNames(container);
 
             foreach (var blob in blobNames)
             {
@@ -48,13 +50,23 @@ namespace ConsoleApp
                 program.DeleteBlob(container, blob);
             }
 
-            blobNames = program.ListBlobs(container, true);
+            blobNames = program.GetBlobNames(container);
+
+            var accessibleUris = program.GetAccessibleUris(container);
         }
 
         private MemoryStream GenerateStreamFromString(string value)
         {
             return new MemoryStream(Encoding.UTF8.GetBytes(value ?? ""));
         }
+
+        public IEnumerable<string> GetAccessibleUris(CloudBlobContainer container)
+        {
+            var sasToken = GetReadSASToken(container);
+            var uris = GetBlobUris(container);
+            var accessibleUris = uris.Select(uri => uri + sasToken).ToList();
+            return accessibleUris;
+        } 
 
         public void UploadToBlobs(CloudBlobContainer container)
         {
@@ -80,9 +92,38 @@ namespace ConsoleApp
             }
         }
 
-        public IEnumerable<string> ListBlobs(CloudBlobContainer container, bool useFlatListing = false)
+        public IEnumerable<string> GetBlobNames(CloudBlobContainer container)
         {
             var blobRefs = new List<string>();
+            // Loop over items within the container and output the length and URI.
+            foreach (IListBlobItem item in container.ListBlobs(null, false))
+            {
+                if (item.GetType() == typeof(CloudBlockBlob))
+                {
+                    CloudBlockBlob blob = (CloudBlockBlob)item;
+                    blobRefs.Add(blob.Name);
+                }
+            }
+            return blobRefs;
+        }
+
+        public IEnumerable<string> GetBlobUris(CloudBlobContainer container)
+        {
+            var uris = new List<string>();
+            // Loop over items within the container and output the length and URI.
+            foreach (IListBlobItem item in container.ListBlobs(null, false))
+            {
+                if (item.GetType() == typeof(CloudBlockBlob))
+                {
+                    CloudBlockBlob blob = (CloudBlockBlob)item;
+                    uris.Add(blob.Uri.AbsoluteUri);
+                }
+            }
+            return uris;
+        }
+
+        public void ListBlobs(CloudBlobContainer container, bool useFlatListing = false)
+        {
             // Loop over items within the container and output the length and URI.
             foreach (IListBlobItem item in container.ListBlobs(null, useFlatListing))
             {
@@ -91,7 +132,6 @@ namespace ConsoleApp
                     CloudBlockBlob blob = (CloudBlockBlob)item;
 
                     Console.WriteLine("Block blob of length {0}: {1}", blob.Properties.Length, blob.Uri);
-                    blobRefs.Add(blob.Name);
                 }
                 else if (item.GetType() == typeof(CloudPageBlob))
                 {
@@ -107,7 +147,6 @@ namespace ConsoleApp
                     Console.WriteLine("Directory: {0}", directory.Uri);
                 }
             }
-            return blobRefs;
         }
 
         public void DownloadBlobs(CloudBlobContainer container, string blobName)
@@ -128,6 +167,36 @@ namespace ConsoleApp
             CloudBlockBlob blockBlob = container.GetBlockBlobReference(blobName);
 
             blockBlob.Delete();
+        }
+
+        public string GetReadSASToken(CloudBlobContainer container)
+        {
+            // Get the current permissions for the blob container.
+            BlobContainerPermissions blobPermissions = container.GetPermissions();
+
+            // Clear the container's shared access policies to avoid naming conflicts.
+            blobPermissions.SharedAccessPolicies.Clear();
+
+            // The new shared access policy provides read access to the container for 24 hours.
+            blobPermissions.SharedAccessPolicies.Add("mypolicy", new SharedAccessBlobPolicy()
+            {
+                // To ensure SAS is valid immediately, don’t set the start time.
+                // This way, you can avoid failures caused by small clock differences.
+                SharedAccessExpiryTime = DateTime.UtcNow.AddHours(24),
+                Permissions = SharedAccessBlobPermissions.Read
+            });
+
+            // The public access setting explicitly specifies that
+            // the container is private, so that it can't be accessed anonymously.
+            blobPermissions.PublicAccess = BlobContainerPublicAccessType.Off;
+
+            // Set the new stored access policy on the container.
+            container.SetPermissions(blobPermissions);
+
+            // Get the shared access signature token to share with users.
+            string sasToken =
+               container.GetSharedAccessSignature(new SharedAccessBlobPolicy(), "mypolicy");
+            return sasToken;
         }
     }
 }
