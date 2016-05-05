@@ -53,6 +53,8 @@ namespace ConsoleApp
             blobNames = program.GetBlobNames(container);
 
             var accessibleUris = program.GetAccessibleUris(container);
+
+            var blobsInFolder = program.GetBlobsNamesForDirectory(container, "domains");
         }
 
         private MemoryStream GenerateStreamFromString(string value)
@@ -92,24 +94,35 @@ namespace ConsoleApp
             }
         }
 
-//        CloudBlobContainer container = blobClient.GetContainerReference("photos");
+        public IEnumerable<string> GetBlobsNamesForDirectory(CloudBlobContainer container, string directoryName)
+        {
+            //1. grab a folder from the container
+            CloudBlobDirectory folder = container.GetDirectoryReference(directoryName);
+            var blobs = folder.ListBlobs(true);
+            var blobNames = new List<string>();
+            foreach (var item in blobs)
+            {
+                if (item.GetType() == typeof(CloudBlockBlob))
+                {
+                    CloudBlockBlob blob = (CloudBlockBlob)item;
+                    blobNames.Add(blob.Name);
+                }
+                else if (item.GetType() == typeof(CloudPageBlob))
+                {
+                    CloudPageBlob pageBlob = (CloudPageBlob)item;
 
-//        //1. grab a folder from the container
-//        CloudBlobDirectory folder = container.GetDirectoryReference("directoryName");
+                    blobNames.Add(pageBlob.Name);
+                }
+                else if (item.GetType() == typeof(CloudBlobDirectory))
+                {
+                    CloudBlobDirectory directory = (CloudBlobDirectory)item;
+                    blobNames.Add(directory.Uri.AbsoluteUri);
+                }
+            }
+           return blobNames;
+        }
 
-////2. Loop over container and grab folders.
-//foreach (IListBlobItem item in container.ListBlobs(null, false))
-//{
-//    if (item.GetType() == typeof(CloudBlobDirectory))
-//    {
-//        // we know this is a sub directory now
-//        CloudBlobDirectory subFolder = (CloudBlobDirectory)item;
-
-//        Console.WriteLine("Directory: {0}", subFolder.Uri);
-//    }
-//}
-
-public IEnumerable<string> GetBlobNames(CloudBlobContainer container)
+        public IEnumerable<string> GetBlobNames(CloudBlobContainer container)
         {
             var blobRefs = new List<string>();
             // Loop over items within the container and output the length and URI.
