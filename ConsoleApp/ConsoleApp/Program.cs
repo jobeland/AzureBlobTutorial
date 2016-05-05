@@ -74,7 +74,7 @@ namespace ConsoleApp
             {
                 // Retrieve reference to a blob named "myblob".
 
-                CloudBlockBlob blockBlob = container.GetBlockBlobReference($"fakeDomain{i}.com");
+                CloudBlockBlob blockBlob = container.GetBlockBlobReference($"domains/fakeDomainInFolder{i}.com");
 
                 // Create or overwrite the "myblob" blob with contents from a local file.
                 using (var stream = GenerateStreamFromString($"this is some test blob content {i}"))
@@ -92,7 +92,24 @@ namespace ConsoleApp
             }
         }
 
-        public IEnumerable<string> GetBlobNames(CloudBlobContainer container)
+//        CloudBlobContainer container = blobClient.GetContainerReference("photos");
+
+//        //1. grab a folder from the container
+//        CloudBlobDirectory folder = container.GetDirectoryReference("directoryName");
+
+////2. Loop over container and grab folders.
+//foreach (IListBlobItem item in container.ListBlobs(null, false))
+//{
+//    if (item.GetType() == typeof(CloudBlobDirectory))
+//    {
+//        // we know this is a sub directory now
+//        CloudBlobDirectory subFolder = (CloudBlobDirectory)item;
+
+//        Console.WriteLine("Directory: {0}", subFolder.Uri);
+//    }
+//}
+
+public IEnumerable<string> GetBlobNames(CloudBlobContainer container)
         {
             var blobRefs = new List<string>();
             // Loop over items within the container and output the length and URI.
